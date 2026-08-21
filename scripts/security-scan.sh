@@ -28,8 +28,8 @@ report_matches() {
   rm -f -- "$grep_output"
 }
 
-report_matches "private key" '-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----'
-report_matches "AWS access key" 'AKIA[0-9A-Z]{16}'
+report_matches "private key" '-----BEGIN (RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----'
+report_matches "AWS access key" '(AKIA|ASIA)[0-9A-Z]{16}'
 report_matches "GitHub token" 'gh[pousr]_[A-Za-z0-9]{36,255}'
 report_matches "GitHub fine-grained token" 'github_pat_[A-Za-z0-9_]{82,255}'
 

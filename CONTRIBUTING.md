@@ -1,4 +1,4 @@
-# Contributing at ABC
+# Contributing at abc
 
 ## Before starting
 

@@ -92,12 +92,16 @@ if ! awk '
   /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
   NF < 2 { bad = 1; next }
   {
+    owners = 0
     for (i = 2; i <= NF; i++) {
+      if ($i ~ /^#/) break
+      owners++
       if ($i !~ /^@[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?$/ &&
           $i !~ /^[^[:space:]@]+@[^[:space:]@]+$/) {
         bad = 1
       }
     }
+    if (owners == 0) bad = 1
   }
   END { exit bad }
 ' .github/CODEOWNERS; then

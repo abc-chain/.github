@@ -1,7 +1,12 @@
 # Governance and change control
 
-The `platform` team owns organization repository defaults, reusable workflows,
-templates, custom-property definitions, and ruleset recipes.
+The owner-controlled `platform` team reviews organization repository defaults,
+reusable workflows, templates, custom-property definitions, and ruleset
+recipes. General engineering access belongs in separate product teams.
+
+Only `2systemadmin`, the current organization owner, may create, edit, delete,
+or bypass live rulesets. Its bypass is user-specific and pull-request-only;
+membership in `platform` does not grant ruleset administration or bypass.
 
 Policy changes should:
 

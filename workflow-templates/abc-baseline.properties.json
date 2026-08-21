@@ -1,5 +1,5 @@
 {
-  "name": "ABC repository baseline",
+  "name": "abc repository baseline",
   "description": "Private repositories: policy and credential checks with one stable required gate.",
   "iconName": "octicon shield-check",
   "categories": ["Code quality", "Security"],

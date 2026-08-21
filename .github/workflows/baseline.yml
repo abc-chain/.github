@@ -1,4 +1,4 @@
-name: ABC Governance Baseline
+name: abc Governance Baseline
 
 on:
   pull_request:

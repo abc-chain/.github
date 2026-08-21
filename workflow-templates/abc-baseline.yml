@@ -1,6 +1,6 @@
 # For private abc-chain repositories. Public callers cannot access the
 # private abc-workflows repository.
-name: ABC Baseline
+name: abc Baseline
 
 on:
   pull_request:
