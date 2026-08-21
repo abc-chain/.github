@@ -1,6 +1,6 @@
-# ABC株式会社 engineering
+# abc株式会社 engineering
 
-`abc-chain` hosts ABC株式会社 engineering repositories and shared development
+`abc-chain` hosts abc株式会社 engineering repositories and shared development
 automation.
 
 New software repositories start from the organization template and use the

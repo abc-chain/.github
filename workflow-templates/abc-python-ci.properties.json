@@ -1,6 +1,6 @@
 {
-  "name": "ABC Python CI",
-  "description": "Private repositories: ABC policy, security, Ruff, and Pytest jobs.",
+  "name": "abc Python CI",
+  "description": "Private repositories: abc policy, security, Ruff, and Pytest jobs.",
   "iconName": "octicon package-dependencies",
   "categories": ["Python", "Continuous integration"],
   "filePatterns": ["pyproject.toml$"]

@@ -1,4 +1,4 @@
-# ABC organization-default instructions
+# abc organization-default instructions
 
 ## Scope
 

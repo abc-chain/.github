@@ -1,4 +1,4 @@
-# ABC organization defaults
+# abc organization defaults
 
 This public repository provides community-health files, issue forms, pull
 request guidance, workflow starters, and the organization profile for
@@ -26,4 +26,4 @@ credentials, private architecture, or confidential operational details.
 
 The repository validates itself locally because GitHub does not allow a public
 caller to invoke workflows from the private `abc-workflows` repository. Starter
-workflows that call `abc-workflows` are intended for ABC private repositories.
+workflows that call `abc-workflows` are intended for abc private repositories.

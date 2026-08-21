@@ -1,4 +1,4 @@
-# ABC repository standard
+# abc repository standard
 
 This document is the concise operating baseline for repositories owned by
 `abc-chain`. “Must” items are policy; “should” items are defaults that may be
