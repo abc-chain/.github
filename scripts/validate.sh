@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+required_files=(
+  README.md
+  AGENTS.md
+  .editorconfig
+  .gitattributes
+  CONTRIBUTING.md
+  SECURITY.md
+  SUPPORT.md
+  PULL_REQUEST_TEMPLATE.md
+  REPOSITORY_STANDARD.md
+  GOVERNANCE.md
+  profile/README.md
+  .github/CODEOWNERS
+  .github/ISSUE_TEMPLATE/bug.yml
+  .github/ISSUE_TEMPLATE/feature.yml
+  .github/ISSUE_TEMPLATE/config.yml
+)
+
+failure_count=0
+
+for required_file in "${required_files[@]}"; do
+  if [[ ! -f "$required_file" ]]; then
+    printf 'ERROR: missing organization-default file: %s\n' "$required_file" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done
+
+for workflow_path in workflow-templates/*.yml; do
+  properties_path="${workflow_path%.yml}.properties.json"
+  if [[ ! -f "$properties_path" ]]; then
+    printf 'ERROR: workflow template metadata is missing: %s\n' "$properties_path" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done
+
+while IFS= read -r properties_path; do
+  python3 -m json.tool "$properties_path" >/dev/null
+done < <(find workflow-templates -maxdepth 1 -type f -name '*.properties.json' | sort)
+
+if ! command -v shellcheck >/dev/null 2>&1; then
+  printf 'ERROR: shellcheck is required for governance scripts.\n' >&2
+  exit 1
+fi
+shellcheck --severity=warning scripts/*.sh
+
+if ! command -v actionlint >/dev/null 2>&1; then
+  printf 'ERROR: actionlint is required for governance workflow validation.\n' >&2
+  exit 1
+fi
+actionlint .github/workflows/*.yml workflow-templates/*.yml
+
+if python3 -c 'import yaml' >/dev/null 2>&1; then
+  while IFS= read -r yaml_path; do
+    python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1], encoding="utf-8"))' "$yaml_path"
+  done < <(find .github/ISSUE_TEMPLATE -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
+elif command -v ruby >/dev/null 2>&1; then
+  while IFS= read -r yaml_path; do
+    ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0))' "$yaml_path"
+  done < <(find .github/ISSUE_TEMPLATE -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
+else
+  printf 'ERROR: PyYAML or Ruby is required to parse issue forms.\n' >&2
+  exit 1
+fi
+
+invalid_uses=0
+while IFS= read -r uses_target; do
+  [[ -z "$uses_target" ]] && continue
+  if [[ "$uses_target" == ./* || "$uses_target" =~ @[0-9a-f]{40}$ ||
+        "$uses_target" =~ ^abc-chain/abc-workflows/\.github/workflows/[a-z-]+\.yml@v[0-9]+$ ]]; then
+    continue
+  fi
+  printf 'ERROR: unapproved action or reusable-workflow reference: %s\n' "$uses_target" >&2
+  invalid_uses=1
+done < <(
+  find .github/workflows workflow-templates -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 |
+    xargs -0 sed -nE 's/^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]+([^[:space:]#]+).*$/\2/p'
+)
+(( invalid_uses == 0 )) || exit 1
+
+while IFS= read -r properties_path; do
+  icon_name="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["iconName"])' "$properties_path")"
+  if [[ "$icon_name" != "octicon "* && ! -f "workflow-templates/$icon_name.svg" ]]; then
+    printf 'ERROR: invalid workflow-template iconName in %s: %s\n' "$properties_path" "$icon_name" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done < <(find workflow-templates -maxdepth 1 -type f -name '*.properties.json' | sort)
+
+if ! awk '
+  /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+  NF < 2 { bad = 1; next }
+  {
+    for (i = 2; i <= NF; i++) {
+      if ($i !~ /^@[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?$/ &&
+          $i !~ /^[^[:space:]@]+@[^[:space:]@]+$/) {
+        bad = 1
+      }
+    }
+  }
+  END { exit bad }
+' .github/CODEOWNERS; then
+  printf 'ERROR: CODEOWNERS contains an invalid owner.\n' >&2
+  failure_count=$((failure_count + 1))
+fi
+
+if (( failure_count > 0 )); then
+  printf 'Governance validation failed with %d error(s).\n' "$failure_count" >&2
+  exit 1
+fi
+
+printf 'Governance validation passed.\n'

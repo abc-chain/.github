@@ -1,0 +1,49 @@
+# For private abc-chain repositories. Public callers cannot access the
+# private abc-workflows repository.
+name: ABC Python CI
+
+on:
+  pull_request:
+  push:
+    branches: [$default-branch]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  repo-policy:
+    uses: abc-chain/abc-workflows/.github/workflows/repo-policy.yml@v1
+    with:
+      repo_type: service
+      require_env_example: true
+
+  security:
+    uses: abc-chain/abc-workflows/.github/workflows/security.yml@v1
+
+  python-ci:
+    uses: abc-chain/abc-workflows/.github/workflows/python-ci.yml@v1
+    with:
+      python_version: "3.13"
+
+  ci-required:
+    name: ci-required
+    if: ${{ !cancelled() }}
+    needs: [repo-policy, security, python-ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        env:
+          POLICY_RESULT: ${{ needs.repo-policy.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+          RUNTIME_RESULT: ${{ needs.python-ci.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$POLICY_RESULT" == "success" ]]
+          [[ "$SECURITY_RESULT" == "success" ]]
+          [[ "$RUNTIME_RESULT" == "success" ]]

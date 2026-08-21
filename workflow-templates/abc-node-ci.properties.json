@@ -1,0 +1,7 @@
+{
+  "name": "ABC Node CI",
+  "description": "Private repositories: ABC policy, security, npm lint, and npm test jobs.",
+  "iconName": "octicon package",
+  "categories": ["JavaScript", "TypeScript", "Continuous integration"],
+  "filePatterns": ["package.json$"]
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security policy
+    url: https://github.com/abc-chain/.github/security/policy
+    about: Report security-sensitive matters through the private process described here.
