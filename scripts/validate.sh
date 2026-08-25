@@ -48,6 +48,60 @@ import sys
 
 workflow_path = Path(sys.argv[1])
 lines = workflow_path.read_text(encoding="utf-8").splitlines()
+workflow_name = workflow_path.as_posix()
+runtime_job = {
+    ".github/workflows/baseline.yml": None,
+    "workflow-templates/abc-baseline.yml": None,
+    "workflow-templates/abc-node-ci.yml": "node-ci",
+    "workflow-templates/abc-python-ci.yml": "python-ci",
+}.get(workflow_name, "unsupported")
+if runtime_job == "unsupported":
+    raise SystemExit(1)
+
+jobs_starts = [index for index, line in enumerate(lines) if line == "jobs:"]
+if len(jobs_starts) != 1:
+    raise SystemExit(1)
+jobs_start = jobs_starts[0]
+job_headers = [
+    (index, match.group(1))
+    for index, line in enumerate(lines[jobs_start + 1 :], jobs_start + 1)
+    if (match := re.fullmatch(r"  ([A-Za-z0-9_-]+):", line)) is not None
+]
+job_ids = [job_id for _, job_id in job_headers]
+expected_job_ids = ["repo-policy", "security"]
+if runtime_job is not None:
+    expected_job_ids.append(runtime_job)
+expected_job_ids.append("ci-required")
+if job_ids != expected_job_ids:
+    raise SystemExit(1)
+
+if runtime_job is not None:
+    runtime_start = next(
+        index for index, job_id in job_headers if job_id == runtime_job
+    )
+    runtime_end = next(
+        index for index, _ in job_headers if index > runtime_start
+    )
+    runtime_block = lines[runtime_start:runtime_end]
+    while runtime_block and runtime_block[-1] == "":
+        runtime_block.pop()
+    expected_runtime_blocks = {
+        "node-ci": [
+            "  node-ci:",
+            "    uses: abc-chain/abc-workflows/.github/workflows/node-ci.yml@v2",
+            "    with:",
+            '      node_version: "22"',
+        ],
+        "python-ci": [
+            "  python-ci:",
+            "    uses: abc-chain/abc-workflows/.github/workflows/python-ci.yml@v2",
+            "    with:",
+            '      python_version: "3.13"',
+        ],
+    }
+    if runtime_block != expected_runtime_blocks[runtime_job]:
+        raise SystemExit(1)
+
 starts = [index for index, line in enumerate(lines) if line == "  ci-required:"]
 if len(starts) != 1:
     raise SystemExit(1)
@@ -70,9 +124,7 @@ needs_match = re.fullmatch(
 if needs_match is None:
     raise SystemExit(1)
 needs = needs_match.group(1).split(", ")
-if len(needs) not in {2, 3} or needs[:2] != ["repo-policy", "security"]:
-    raise SystemExit(1)
-if len(set(needs)) != len(needs) or "ci-required" in needs:
+if needs != expected_job_ids[:-1]:
     raise SystemExit(1)
 
 result_variables = ["POLICY_RESULT", "SECURITY_RESULT"]
