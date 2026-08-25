@@ -36,11 +36,9 @@ for workflow_path in workflow-templates/*.yml; do
   fi
 done
 
-aggregate_workflows=(
-  .github/workflows/baseline.yml
-  workflow-templates/abc-baseline.yml
-  workflow-templates/abc-node-ci.yml
-  workflow-templates/abc-python-ci.yml
+mapfile -d '' -t aggregate_workflows < <(
+  find .github/workflows workflow-templates -maxdepth 1 -type f \
+    \( -name '*.yml' -o -name '*.yaml' \) -print0 | sort -z
 )
 for workflow_path in "${aggregate_workflows[@]}"; do
   if ! python3 -I - "$workflow_path" <<'PY'
@@ -62,15 +60,53 @@ for index in range(start + 1, len(lines)):
         break
 
 block = lines[start:end]
-if block.count("    name: ci-required") != 1:
+if len(block) < 4:
     raise SystemExit(1)
-if block.count("    if: ${{ always() }}") != 1:
+
+needs_match = re.fullmatch(
+    r"    needs: \[([a-z0-9-]+(?:, [a-z0-9-]+)*)\]",
+    block[3],
+)
+if needs_match is None:
     raise SystemExit(1)
-if any(line.startswith("    if:") and line != "    if: ${{ always() }}" for line in block):
+needs = needs_match.group(1).split(", ")
+if len(needs) not in {2, 3} or needs[:2] != ["repo-policy", "security"]:
+    raise SystemExit(1)
+if len(set(needs)) != len(needs) or "ci-required" in needs:
+    raise SystemExit(1)
+
+result_variables = ["POLICY_RESULT", "SECURITY_RESULT"]
+if len(needs) == 3:
+    result_variables.append("RUNTIME_RESULT")
+
+expected = [
+    "  ci-required:",
+    "    name: ci-required",
+    "    if: ${{ always() }}",
+    f"    needs: [{', '.join(needs)}]",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 5",
+    "    steps:",
+    "      - name: Verify required jobs",
+    "        env:",
+]
+expected.extend(
+    f"          {variable}: ${{{{ needs.{job}.result }}}}"
+    for job, variable in zip(needs, result_variables)
+)
+expected.extend([
+    "        run: |",
+    "          set -Eeuo pipefail",
+])
+expected.extend(
+    f'          [[ "${variable}" == "success" ]]'
+    for variable in result_variables
+)
+if block != expected:
     raise SystemExit(1)
 PY
   then
-    printf 'ERROR: ci-required must use one literal always() aggregate in %s.\n' \
+    printf 'ERROR: ci-required does not match the exact cancellation-safe aggregate in %s.\n' \
       "$workflow_path" >&2
     failure_count=$((failure_count + 1))
   fi
