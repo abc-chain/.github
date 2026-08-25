@@ -17,16 +17,16 @@ concurrency:
 
 jobs:
   repo-policy:
-    uses: abc-chain/abc-workflows/.github/workflows/repo-policy.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/repo-policy.yml@v2
     with:
       repo_type: service
       require_env_example: true
 
   security:
-    uses: abc-chain/abc-workflows/.github/workflows/security.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/security.yml@v2
 
   node-ci:
-    uses: abc-chain/abc-workflows/.github/workflows/node-ci.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/node-ci.yml@v2
     with:
       node_version: "22"
 
