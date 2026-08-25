@@ -27,7 +27,7 @@ jobs:
 
   ci-required:
     name: ci-required
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     needs: [repo-policy, security]
     runs-on: ubuntu-latest
     timeout-minutes: 5

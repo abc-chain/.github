@@ -36,6 +36,46 @@ for workflow_path in workflow-templates/*.yml; do
   fi
 done
 
+aggregate_workflows=(
+  .github/workflows/baseline.yml
+  workflow-templates/abc-baseline.yml
+  workflow-templates/abc-node-ci.yml
+  workflow-templates/abc-python-ci.yml
+)
+for workflow_path in "${aggregate_workflows[@]}"; do
+  if ! python3 -I - "$workflow_path" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+workflow_path = Path(sys.argv[1])
+lines = workflow_path.read_text(encoding="utf-8").splitlines()
+starts = [index for index, line in enumerate(lines) if line == "  ci-required:"]
+if len(starts) != 1:
+    raise SystemExit(1)
+
+start = starts[0]
+end = len(lines)
+for index in range(start + 1, len(lines)):
+    if re.fullmatch(r"  [A-Za-z0-9_-]+:", lines[index]):
+        end = index
+        break
+
+block = lines[start:end]
+if block.count("    name: ci-required") != 1:
+    raise SystemExit(1)
+if block.count("    if: ${{ always() }}") != 1:
+    raise SystemExit(1)
+if any(line.startswith("    if:") and line != "    if: ${{ always() }}" for line in block):
+    raise SystemExit(1)
+PY
+  then
+    printf 'ERROR: ci-required must use one literal always() aggregate in %s.\n' \
+      "$workflow_path" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done
+
 while IFS= read -r properties_path; do
   python3 -m json.tool "$properties_path" >/dev/null
 done < <(find workflow-templates -maxdepth 1 -type f -name '*.properties.json' | sort)
