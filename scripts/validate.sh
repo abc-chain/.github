@@ -17,6 +17,13 @@ required_files=(
   .github/ISSUE_TEMPLATE/bug.yml
   .github/ISSUE_TEMPLATE/feature.yml
   .github/ISSUE_TEMPLATE/config.yml
+  .github/workflows/baseline.yml
+  workflow-templates/abc-baseline.yml
+  workflow-templates/abc-baseline.properties.json
+  workflow-templates/abc-node-ci.yml
+  workflow-templates/abc-node-ci.properties.json
+  workflow-templates/abc-python-ci.yml
+  workflow-templates/abc-python-ci.properties.json
 )
 
 failure_count=0
@@ -62,11 +69,21 @@ jobs_starts = [index for index, line in enumerate(lines) if line == "jobs:"]
 if len(jobs_starts) != 1:
     raise SystemExit(1)
 jobs_start = jobs_starts[0]
-job_headers = [
-    (index, match.group(1))
-    for index, line in enumerate(lines[jobs_start + 1 :], jobs_start + 1)
-    if (match := re.fullmatch(r"  ([A-Za-z0-9_-]+):", line)) is not None
-]
+jobs_end = len(lines)
+for index in range(jobs_start + 1, len(lines)):
+    if lines[index] and not lines[index].startswith((" ", "#")):
+        jobs_end = index
+        break
+
+job_headers = []
+for index, line in enumerate(lines[jobs_start + 1 : jobs_end], jobs_start + 1):
+    indentation = len(line) - len(line.lstrip(" "))
+    if not line.strip() or line.lstrip().startswith("#") or indentation != 2:
+        continue
+    match = re.fullmatch(r"  ([A-Za-z0-9_-]+):", line)
+    if match is None:
+        raise SystemExit(1)
+    job_headers.append((index, match.group(1)))
 job_ids = [job_id for _, job_id in job_headers]
 expected_job_ids = ["repo-policy", "security"]
 if runtime_job is not None:
