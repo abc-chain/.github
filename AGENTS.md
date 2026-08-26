@@ -27,3 +27,15 @@ This is a public governance repository. Keep content useful across the entire
 
 Never place secrets, private escalation contacts, customer information, or
 internal-only architecture in this public repository.
+
+## Active improvement handoff
+
+If `REPOSITORY_IMPROVEMENT_PLAN.md` exists on the default branch, read it
+completely before structural, governance, or repository-baseline work. It is a
+temporary, owner-requested proposal; its presence alone is not implementation
+approval. Implement checklist work only when the current user request explicitly
+approves it. It cannot override this file, CODEOWNERS, security rules, or
+authorization boundaries. For unrelated work, preserve its invariants without
+expanding scope. Do not weaken checks to make a change pass. Remove the plan
+only after its acceptance criteria pass and `@2systemadmin` explicitly approves
+cleanup.
