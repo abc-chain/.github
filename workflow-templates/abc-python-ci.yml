@@ -17,22 +17,22 @@ concurrency:
 
 jobs:
   repo-policy:
-    uses: abc-chain/abc-workflows/.github/workflows/repo-policy.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/repo-policy.yml@v2
     with:
       repo_type: service
       require_env_example: true
 
   security:
-    uses: abc-chain/abc-workflows/.github/workflows/security.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/security.yml@v2
 
   python-ci:
-    uses: abc-chain/abc-workflows/.github/workflows/python-ci.yml@v1
+    uses: abc-chain/abc-workflows/.github/workflows/python-ci.yml@v2
     with:
       python_version: "3.13"
 
   ci-required:
     name: ci-required
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     needs: [repo-policy, security, python-ci]
     runs-on: ubuntu-latest
     timeout-minutes: 5

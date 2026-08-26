@@ -24,7 +24,9 @@ An active software repository must contain:
 - `.editorconfig` and `.gitattributes` that keep cross-platform text and shell
   line endings deterministic;
 - source, tests, and documentation in paths appropriate to its repository type;
-- `AGENTS.md` when coding agents modify the repository.
+- canonical `AGENTS.md`, plus `CLAUDE.md` and
+  `.github/copilot-instructions.md` pointers to it, when coding agents modify
+  the repository.
 
 Service/library repositories normally use `src/`, `tests/`, and `docs/`.
 Frontends may use `src/` or `app/`. Monorepos may use `apps/` and `packages/`.

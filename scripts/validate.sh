@@ -17,6 +17,13 @@ required_files=(
   .github/ISSUE_TEMPLATE/bug.yml
   .github/ISSUE_TEMPLATE/feature.yml
   .github/ISSUE_TEMPLATE/config.yml
+  .github/workflows/baseline.yml
+  workflow-templates/abc-baseline.yml
+  workflow-templates/abc-baseline.properties.json
+  workflow-templates/abc-node-ci.yml
+  workflow-templates/abc-node-ci.properties.json
+  workflow-templates/abc-python-ci.yml
+  workflow-templates/abc-python-ci.properties.json
 )
 
 failure_count=0
@@ -32,6 +39,144 @@ for workflow_path in workflow-templates/*.yml; do
   properties_path="${workflow_path%.yml}.properties.json"
   if [[ ! -f "$properties_path" ]]; then
     printf 'ERROR: workflow template metadata is missing: %s\n' "$properties_path" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done
+
+mapfile -d '' -t aggregate_workflows < <(
+  find .github/workflows workflow-templates -maxdepth 1 -type f \
+    \( -name '*.yml' -o -name '*.yaml' \) -print0 | sort -z
+)
+for workflow_path in "${aggregate_workflows[@]}"; do
+  if ! python3 -I - "$workflow_path" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+workflow_path = Path(sys.argv[1])
+lines = workflow_path.read_text(encoding="utf-8").splitlines()
+workflow_name = workflow_path.as_posix()
+runtime_job = {
+    ".github/workflows/baseline.yml": None,
+    "workflow-templates/abc-baseline.yml": None,
+    "workflow-templates/abc-node-ci.yml": "node-ci",
+    "workflow-templates/abc-python-ci.yml": "python-ci",
+}.get(workflow_name, "unsupported")
+if runtime_job == "unsupported":
+    raise SystemExit(1)
+
+jobs_starts = [index for index, line in enumerate(lines) if line == "jobs:"]
+if len(jobs_starts) != 1:
+    raise SystemExit(1)
+jobs_start = jobs_starts[0]
+jobs_end = len(lines)
+for index in range(jobs_start + 1, len(lines)):
+    if lines[index] and not lines[index].startswith((" ", "#")):
+        jobs_end = index
+        break
+
+job_headers = []
+for index, line in enumerate(lines[jobs_start + 1 : jobs_end], jobs_start + 1):
+    indentation = len(line) - len(line.lstrip(" "))
+    if not line.strip() or line.lstrip().startswith("#") or indentation != 2:
+        continue
+    match = re.fullmatch(r"  ([A-Za-z0-9_-]+):", line)
+    if match is None:
+        raise SystemExit(1)
+    job_headers.append((index, match.group(1)))
+job_ids = [job_id for _, job_id in job_headers]
+expected_job_ids = ["repo-policy", "security"]
+if runtime_job is not None:
+    expected_job_ids.append(runtime_job)
+expected_job_ids.append("ci-required")
+if job_ids != expected_job_ids:
+    raise SystemExit(1)
+
+if runtime_job is not None:
+    runtime_start = next(
+        index for index, job_id in job_headers if job_id == runtime_job
+    )
+    runtime_end = next(
+        index for index, _ in job_headers if index > runtime_start
+    )
+    runtime_block = lines[runtime_start:runtime_end]
+    while runtime_block and runtime_block[-1] == "":
+        runtime_block.pop()
+    expected_runtime_blocks = {
+        "node-ci": [
+            "  node-ci:",
+            "    uses: abc-chain/abc-workflows/.github/workflows/node-ci.yml@v2",
+            "    with:",
+            '      node_version: "22"',
+        ],
+        "python-ci": [
+            "  python-ci:",
+            "    uses: abc-chain/abc-workflows/.github/workflows/python-ci.yml@v2",
+            "    with:",
+            '      python_version: "3.13"',
+        ],
+    }
+    if runtime_block != expected_runtime_blocks[runtime_job]:
+        raise SystemExit(1)
+
+starts = [index for index, line in enumerate(lines) if line == "  ci-required:"]
+if len(starts) != 1:
+    raise SystemExit(1)
+
+start = starts[0]
+end = len(lines)
+for index in range(start + 1, len(lines)):
+    if re.fullmatch(r"  [A-Za-z0-9_-]+:", lines[index]):
+        end = index
+        break
+
+block = lines[start:end]
+if len(block) < 4:
+    raise SystemExit(1)
+
+needs_match = re.fullmatch(
+    r"    needs: \[([a-z0-9-]+(?:, [a-z0-9-]+)*)\]",
+    block[3],
+)
+if needs_match is None:
+    raise SystemExit(1)
+needs = needs_match.group(1).split(", ")
+if needs != expected_job_ids[:-1]:
+    raise SystemExit(1)
+
+result_variables = ["POLICY_RESULT", "SECURITY_RESULT"]
+if len(needs) == 3:
+    result_variables.append("RUNTIME_RESULT")
+
+expected = [
+    "  ci-required:",
+    "    name: ci-required",
+    "    if: ${{ always() }}",
+    f"    needs: [{', '.join(needs)}]",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 5",
+    "    steps:",
+    "      - name: Verify required jobs",
+    "        env:",
+]
+expected.extend(
+    f"          {variable}: ${{{{ needs.{job}.result }}}}"
+    for job, variable in zip(needs, result_variables)
+)
+expected.extend([
+    "        run: |",
+    "          set -Eeuo pipefail",
+])
+expected.extend(
+    f'          [[ "${variable}" == "success" ]]'
+    for variable in result_variables
+)
+if block != expected:
+    raise SystemExit(1)
+PY
+  then
+    printf 'ERROR: ci-required does not match the exact cancellation-safe aggregate in %s.\n' \
+      "$workflow_path" >&2
     failure_count=$((failure_count + 1))
   fi
 done

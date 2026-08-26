@@ -27,3 +27,7 @@ credentials, private architecture, or confidential operational details.
 The repository validates itself locally because GitHub does not allow a public
 caller to invoke workflows from the private `abc-workflows` repository. Starter
 workflows that call `abc-workflows` are intended for abc private repositories.
+The published starters target the current `v2` compatibility line. Before a
+starter update that selects a new major is merged, maintainers must publish its
+immutable release and major tag, then prove both tags resolve to the same
+reviewed `abc-workflows` commit.
